@@ -1,0 +1,6 @@
+@TBS.APIs_HostAddress = http://localhost:5140
+
+GET {{TBS.APIs_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
