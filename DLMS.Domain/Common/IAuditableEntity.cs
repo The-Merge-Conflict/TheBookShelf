@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace DLMS.Domain.Common
 {
-    internal interface IAuditableEntity
+    public interface IAuditableEntity
     {
+        string? CreatedBy { get; set; }
+        string? ModifiedBy { get; set; }
     }
 }

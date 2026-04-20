@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace DLMS.Domain.Interfaces
 {
-    internal interface IUnitOfWork
+    public interface IUnitOfWork : IDisposable
     {
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

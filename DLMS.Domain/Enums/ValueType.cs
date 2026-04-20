@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace DLMS.Domain.Enums
 {
-    internal class ValueType
+    public enum ValueType
     {
+        Literal,
+        Uri,
+        Resource
     }
 }
