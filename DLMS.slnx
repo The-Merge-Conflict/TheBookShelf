@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="DLMS.API/DLMS.API.csproj" Id="1f827cd0-fb80-4663-8ccc-892e54003cec" />
+    <Project Path="src/DLMS.Application/DLMS.Application.csproj" />
+    <Project Path="src/DLMS.Domain/DLMS.Domain.csproj" />
+    <Project Path="src/DLMS.Infrastructure/DLMS.Infrastructure.csproj" />
+  </Folder>
+</Solution>
