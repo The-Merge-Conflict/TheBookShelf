@@ -6,7 +6,15 @@ using System.Threading.Tasks;
 
 namespace DLMS.Domain.Entities
 {
-    internal class Media
+    public class Media : Resource
     {
+        public int ItemId { get; set; }
+        //nav
+        public Item Item { get; set; } = null!;
+        public string StoragePath { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string MimeType { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public string? AltText { get; set; }
     }
 }
