@@ -8,7 +8,7 @@ namespace DLMS.Domain.Common
 {
     public abstract class BaseEntity
     {
-        public int Id { get; set; }
+        public int Id { get; init; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedAt { get; set; }
     }

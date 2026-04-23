@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace DLMS.Domain.Enums
 {
-    internal class ResourceType
+    public enum ResourceType
     {
+        Item,
+        ItemSet,
+        Media
     }
 }
