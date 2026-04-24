@@ -1,4 +1,5 @@
 ﻿using DLMS.Domain.Common;
+using DLMS.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,6 @@ namespace DLMS.Domain.Entities
         // Internal Linking to another Resource
         public int? ValueResourceId { get; set; }
         public Resource? ValueResource { get; set; }
-
-        public string? Language { get; set; }
+        public LanguageCode? Language { get; set; }
     }
 }
