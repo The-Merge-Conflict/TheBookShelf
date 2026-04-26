@@ -1,5 +1,7 @@
-﻿using DLMS.Domain.Entities;
+﻿using DLMS.Application.Common.Interfaces;
+using DLMS.Domain.Entities;
 using DLMS.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -12,7 +14,7 @@ using System.Threading.Tasks;
 namespace DLMS.Infrastructure.Persistence
 {
     // IApplicationDbContext must be added first in the app layer
-    /*public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbContext
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
@@ -29,14 +31,19 @@ namespace DLMS.Infrastructure.Persistence
         public DbSet<TemplateProperty> TemplateProperties => Set<TemplateProperty>();
 
         // 4. Domain User Entity
-        public DbSet<User> UserProfiles => Set<User>();
+        public DbSet<User> Users => Set<User>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
             builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+            builder.Entity<IdentityRole>().HasData(
+       new IdentityRole { Id = "1", Name = "Admin", NormalizedName = "ADMIN" },
+       new IdentityRole { Id = "2", Name = "Editor", NormalizedName = "EDITOR" },
+       new IdentityRole { Id = "3", Name = "Viewer", NormalizedName = "VIEWER" }
+   );
         }
     }
-    */
+    
 }
