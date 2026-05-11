@@ -1,66 +1,89 @@
 ﻿using DLMS.Application.Common.Interfaces;
+using DLMS.Application.DTOs.Auth;
 using Microsoft.AspNetCore.Identity;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DLMS.Infrastructure.Identity
+namespace DLMS.Infrastructure.Identity;
+
+public class IdentityService : IIdentityService
 {
-    public class IdentityService : IIdentityService
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly JwtTokenGenerator _jwtTokenGenerator;
+
+    public IdentityService(
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
+        JwtTokenGenerator jwtTokenGenerator)
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly JwtTokenGenerator _jwtTokenGenerator;
+        _userManager = userManager;
+        _signInManager = signInManager;
+        _jwtTokenGenerator = jwtTokenGenerator;
+    }
 
-        public IdentityService(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
-            JwtTokenGenerator jwtTokenGenerator)
+    public async Task<AuthResponseDto> RegisterAsync(
+        string userName, string email, string password, string role)
+    {
+        var user = new ApplicationUser
         {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _jwtTokenGenerator = jwtTokenGenerator;
-        }
+            UserName = userName,
+            Email = email
+        };
 
-        public async Task<(bool Result, string[] Errors)> RegisterUserAsync(string email, string password, string role)
-        {
-            var user = new ApplicationUser
+        var result = await _userManager.CreateAsync(user, password);
+
+        if (!result.Succeeded)
+            return new AuthResponseDto
             {
-                UserName = email,
-                Email = email
+                Succeeded = false,
+                Errors = result.Errors.Select(e => e.Description).ToArray()
             };
 
-            var result = await _userManager.CreateAsync(user, password);
+        await _userManager.AddToRoleAsync(user, role);
 
-            if (result.Succeeded)
-            {
-                await _userManager.AddToRoleAsync(user, role);
-                return (true, Array.Empty<string>());
-            }
-
-            return (false, result.Errors.Select(e => e.Description).ToArray());
-        }
-
-        public async Task<(bool Result, string Token, string[] Errors)> LoginAsync(string email, string password)
+        return new AuthResponseDto
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-                return (false, string.Empty, new[] { "Invalid email or password." });
+            Succeeded = true,
+            UserId = user.Id,
+            UserName = user.UserName!,
+            Email = user.Email!,
+            Roles = [role],
+            Errors = []
+        };
+    }
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: false);
+    public async Task<AuthResponseDto> LoginAsync(string email, string password)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
 
-            if (result.Succeeded)
+        if (user is null)
+            return new AuthResponseDto
             {
-                var roles = await _userManager.GetRolesAsync(user);
+                Succeeded = false,
+                Errors = ["Invalid email or password."]
+            };
 
-                var token = _jwtTokenGenerator.GenerateToken(user, roles);
+        var result = await _signInManager
+            .CheckPasswordSignInAsync(user, password, lockoutOnFailure: false);
 
-                return (true, token, Array.Empty<string>());
-            }
+        if (!result.Succeeded)
+            return new AuthResponseDto
+            {
+                Succeeded = false,
+                Errors = ["Invalid email or password."]
+            };
 
-            return (false, string.Empty, new[] { "Invalid email or password." });
-        }
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = _jwtTokenGenerator.GenerateToken(user, roles);
+
+        return new AuthResponseDto
+        {
+            Succeeded = true,
+            UserId = user.Id,
+            UserName = user.UserName!,
+            Email = user.Email!,
+            Token = token,
+            Roles = [.. roles],
+            Errors = []
+        };
     }
 }

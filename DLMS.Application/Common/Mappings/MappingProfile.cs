@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using DLMS.Application.DTOs;
 using DLMS.Domain.Entities;
 
@@ -27,16 +27,21 @@ public class MappingProfile : Profile
 
         // Value
         CreateMap<Value, ValueDto>()
-            .ForMember(d => d.PropertyLabel, o => o.MapFrom(s => s.Property.Label));
+            .ForMember(d => d.PropertyLabel, o => o.MapFrom(s => s.Property.Label))
+            .ForMember(d => d.Type, o => o.MapFrom(s => s.ValueType.ToString()))
+            .ForMember(d => d.Language, o => o.MapFrom(s =>
+                s.Language != null ? s.Language.Code : null));
 
         // Media
         CreateMap<Media, MediaDto>()
-            .ForMember(d => d.MimeType, o => o.MapFrom(s => s.MimeType));
+            .ForMember(d => d.MimeType, o => o.MapFrom(s => s.MimeType.Value))
+            .ForMember(d => d.FileSize, o => o.MapFrom(s => s.FileSize.Bytes));
 
         // Item
         CreateMap<Item, ItemDto>()
             .ForMember(d => d.TemplateLabel, o => o.MapFrom(s =>
-                s.Template != null ? s.Template.Label : string.Empty));
+                s.Template != null ? s.Template.Label : string.Empty))
+            .ForMember(d => d.Medias, o => o.MapFrom(s => s.MediaList));
 
         // ItemSet
         CreateMap<ItemSet, ItemSetDto>();
