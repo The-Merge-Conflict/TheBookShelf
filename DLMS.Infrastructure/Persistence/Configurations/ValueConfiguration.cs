@@ -1,4 +1,4 @@
-﻿using DLMS.Domain.Entities;
+using DLMS.Domain.Entities;
 using DLMS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,8 +19,8 @@ namespace DLMS.Infrastructure.Persistence.Configurations
 
             builder.Property(v => v.Language)
                    .HasConversion(
-                       lang => lang.Code,
-                       dbString => LanguageCode.Create(dbString))
+                       lang => lang != null ? lang.Code : null,
+                       dbString => dbString != null ? LanguageCode.Create(dbString) : null)
                    .HasMaxLength(2)
                    .HasColumnName("Language");
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,7 +16,7 @@ namespace DLMS.Domain.ValueObjects
                 throw new ArgumentException("Street cannot be empty");
 
             if (string.IsNullOrWhiteSpace(city))
-                throw new ArgumentException("Street cannot be empty");
+                throw new ArgumentException("City cannot be empty");
 
             if (string.IsNullOrWhiteSpace(country))
                 throw new ArgumentException("Country cannot be empty");

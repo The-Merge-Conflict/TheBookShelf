@@ -14,5 +14,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
     public Task<AuthResponseDto> Handle(
         RegisterCommand request,
         CancellationToken cancellationToken)
-        => _identityService.RegisterAsync(request.UserName, request.Email, request.Password);
+        => _identityService.RegisterAsync(
+            request.UserName,
+            request.Email,
+            request.Password,
+            request.Role);
 }

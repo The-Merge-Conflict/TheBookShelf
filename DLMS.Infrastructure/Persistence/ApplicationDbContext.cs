@@ -1,4 +1,4 @@
-﻿using DLMS.Application.Common.Interfaces;
+using DLMS.Application.Common.Interfaces;
 using DLMS.Domain.Entities;
 using DLMS.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -31,7 +31,7 @@ namespace DLMS.Infrastructure.Persistence
         public DbSet<TemplateProperty> TemplateProperties => Set<TemplateProperty>();
 
         // 4. Domain User Entity
-        public DbSet<User> Users => Set<User>();
+        public new DbSet<User> Users => Set<User>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

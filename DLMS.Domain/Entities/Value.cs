@@ -1,4 +1,4 @@
-﻿using DLMS.Domain.Common;
+using DLMS.Domain.Common;
 using DLMS.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
@@ -16,7 +16,7 @@ namespace DLMS.Domain.Entities
         public int PropertyId { get; set; }
         public Property Property { get; set; } = null!;
 
-        public ValueType ValueType { get; set; }
+        public Enums.ValueType ValueType { get; set; }
 
         public string? ValueText { get; set; }
         public string? ValueUri { get; set; }
