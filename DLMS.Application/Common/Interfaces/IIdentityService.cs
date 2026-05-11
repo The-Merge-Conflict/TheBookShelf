@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using DLMS.Application.DTOs.Auth;
 
-namespace DLMS.Application.Common.Interfaces
+namespace DLMS.Application.Common.Interfaces;
+
+public interface IIdentityService
 {
-    public interface IIdentityService
-    {
-        Task<(bool Result, string[] Errors)> RegisterUserAsync(string email, string password, string role);
-        Task<(bool Result, string Token, string[] Errors)> LoginAsync(string email, string password);
-    }
+    Task<AuthResponseDto> RegisterAsync(string userName, string email, string password);
+    Task<AuthResponseDto> LoginAsync(string email, string password);
+    Task<string?> GetUserNameAsync(string userId);
+    Task<bool> IsInRoleAsync(string userId, string role);
 }
