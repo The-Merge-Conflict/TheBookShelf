@@ -43,7 +43,7 @@ namespace DLMS.Infrastructure.Persistence.Configurations
             builder.HasOne(m => m.Item)
                    .WithMany(i => i.MediaList)
                    .HasForeignKey(m => m.ItemId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
