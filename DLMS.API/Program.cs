@@ -36,10 +36,10 @@ try
         var securityScheme = new OpenApiSecurityScheme
         {
             Name = "Authorization",
-            Description = "Enter: Bearer {your JWT token}",
+            Description = "Paste your JWT token. Swagger will send it as: Bearer {token}",
             In = ParameterLocation.Header,
-            Type = SecuritySchemeType.ApiKey,
-            Scheme = "Bearer",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
             BearerFormat = "JWT",
             Reference = new OpenApiReference
             {
@@ -77,6 +77,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
 

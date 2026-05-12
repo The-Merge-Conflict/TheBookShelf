@@ -8,5 +8,5 @@ public record RegisterCommand(
     string Email,
     string Password,
     string ConfirmPassword,
-    string Role = "Viewer"
+    string Role
 ) : IRequest<AuthResponseDto>;

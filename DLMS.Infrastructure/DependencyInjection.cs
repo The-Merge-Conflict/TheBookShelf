@@ -54,9 +54,9 @@ public static class DependencyInjection
 
         // ── JWT Authentication ────────────────────────────────────────────────
         var jwt = configuration.GetSection("Jwt");
-        var key = Encoding.UTF8.GetBytes(jwt["Key"]
+        var key = Encoding.UTF8.GetBytes(jwt["Secret"]
             ?? throw new InvalidOperationException(
-                "JWT Key is missing from configuration."));
+                "JWT Secret is missing from configuration."));
 
         services
             .AddAuthentication(options =>
@@ -86,6 +86,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // ── Application Services ──────────────────────────────────────────────
+        services.AddScoped<JwtTokenGenerator>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IMediaProcessingService, MediaProcessingService>();

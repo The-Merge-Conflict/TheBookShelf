@@ -39,6 +39,7 @@ public class IdentityService : IIdentityService
             };
 
         await _userManager.AddToRoleAsync(user, role);
+        var token = _jwtTokenGenerator.GenerateToken(user, [role]);
 
         return new AuthResponseDto
         {
@@ -46,6 +47,7 @@ public class IdentityService : IIdentityService
             UserId = user.Id,
             UserName = user.UserName!,
             Email = user.Email!,
+            Token = token,
             Roles = [role],
             Errors = []
         };
