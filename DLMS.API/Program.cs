@@ -1,5 +1,8 @@
+using DLMS.Infrastructure;
+using DLMS.Application;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using DLMS.API.Middleware;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -15,6 +18,9 @@ try
               .Enrich.FromLogContext()
               .Enrich.WithMachineName()
               .Enrich.WithThreadId());
+
+    builder.Services.AddApplication();
+    builder.Services.AddInfrastructure(builder.Configuration);
 
     builder.Services.AddControllers();
 
@@ -50,6 +56,9 @@ try
     });
 
     var app = builder.Build();
+    app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+    await app.Services.SeedRolesAsync();
 
     app.UseSerilogRequestLogging(options =>
     {
