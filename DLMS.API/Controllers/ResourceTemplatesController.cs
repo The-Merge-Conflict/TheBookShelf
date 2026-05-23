@@ -3,6 +3,7 @@ using DLMS.Application.Features.ResourceTemplates.Commands.CreateResourceTemplat
 using DLMS.Application.Features.ResourceTemplates.Commands.DeleteResourceTemplate;
 using DLMS.Application.Features.ResourceTemplates.Commands.RemovePropertyFromTemplate;
 using DLMS.Application.Features.ResourceTemplates.Commands.UpdateResourceTemplate;
+using DLMS.Application.Features.ResourceTemplates.Commands.UpdateTemplateProperty;
 using DLMS.Application.Features.ResourceTemplates.Queries.GetAllResourceTemplates;
 using DLMS.Application.Features.ResourceTemplates.Queries.GetResourceTemplateById;
 using Microsoft.AspNetCore.Authorization;
@@ -88,6 +89,27 @@ public class ResourceTemplatesController : BaseApiController
         await Mediator.Send(new RemovePropertyFromTemplateCommand(id, propertyId), ct);
         return NoContent();
     }
+
+    /// <summary>Update a template property link.</summary>
+    [HttpPut("{id:int}/properties/{propertyId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateProperty(
+        int id,
+        int propertyId,
+        UpdateTemplatePropertyRequest request,
+        CancellationToken ct)
+    {
+        await Mediator.Send(
+            new UpdateTemplatePropertyCommand(
+                id,
+                propertyId,
+                request.IsRequired,
+                request.DisplayOrder,
+                request.AlternateLabel),
+            ct);
+
+        return NoContent();
+    }
 }
 
 public record UpdateResourceTemplateRequest(string Label, string Description);
@@ -96,3 +118,4 @@ public record AddPropertyRequest(
     bool IsRequired,
     int DisplayOrder,
     string? AlternateLabel);
+public record UpdateTemplatePropertyRequest(bool IsRequired, int DisplayOrder, string? AlternateLabel);
