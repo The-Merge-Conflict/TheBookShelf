@@ -1,6 +1,454 @@
-@DLMS.API_HostAddress = http://localhost:5087
-
-GET {{DLMS.API_HostAddress}}/weatherforecast/
-Accept: application/json
+@baseUrl = http://localhost:5087
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjYzAwN2Q4OS1kNzgwLTRlYTMtOTg0OC0wOWY4YTAyMjA0OTQiLCJlbWFpbCI6InRlc3RhZG1pbkBkbG1zLmxvY2FsIiwianRpIjoiZjQ2OTQ1ZDgtOTg5Zi00Y2JjLWFlZTQtZjY5M2FlNWFmZTdmIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQWRtaW4iLCJleHAiOjE3Nzk1NzI2MDEsImlzcyI6IkRMTVMtQVBJIiwiYXVkIjoiRExNUy1DbGllbnQifQ.YZnRmpidGs2gBJQs5iHFc0y-7vYUNCFPKnuJQ6E2Tug
 
 ###
+# Register an Admin test user.
+# Expect: 200 OK
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "userName": "testadmin",
+  "email": "testadmin@dlms.local",
+  "password": "Admin1234",
+  "confirmPassword": "Admin1234",
+  "role": "Admin"
+}
+
+###
+# Login as the Admin test user. Copy the token from the response into @token before running authenticated requests.
+# Expect: 200 OK
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testadmin@dlms.local",
+  "password": "Admin1234"
+}
+
+###
+# Create a vocabulary for Dublin Core terms.
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/vocabularies
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prefix": "dc",
+  "namespaceUri": "http://purl.org/dc/elements/1.1/",
+  "label": "Dublin Core"
+}
+
+###
+# Get all vocabularies.
+# Expect: 200 OK
+GET {{baseUrl}}/api/vocabularies
+Authorization: Bearer {{token}}
+
+###
+# Get vocabulary by id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/vocabularies/1
+Authorization: Bearer {{token}}
+
+###
+# Update vocabulary label.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/vocabularies/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prefix": "dc",
+  "namespaceUri": "http://purl.org/dc/elements/1.1/",
+  "label": "Dublin Core Elements"
+}
+
+###
+# Create the title property.
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "vocabularyId": 1,
+  "localName": "title",
+  "label": "Title",
+  "termUri": "http://purl.org/dc/elements/1.1/title"
+}
+
+###
+# Create the creator property.
+# Expect: 201 Created with body { "id": 2 }
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "vocabularyId": 1,
+  "localName": "creator",
+  "label": "Creator",
+  "termUri": "http://purl.org/dc/elements/1.1/creator"
+}
+
+###
+# Get all properties.
+# Expect: 200 OK
+GET {{baseUrl}}/api/properties
+Authorization: Bearer {{token}}
+
+###
+# Get properties by vocabulary id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/properties/by-vocabulary/1
+Authorization: Bearer {{token}}
+
+###
+# Get property by id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/properties/1
+Authorization: Bearer {{token}}
+
+###
+# Update the title property.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/properties/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "localName": "title",
+  "label": "Title (Updated)",
+  "termUri": "http://purl.org/dc/elements/1.1/title"
+}
+
+###
+# Create a resource template for book items.
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/resourcetemplates
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "label": "Book Template",
+  "description": "Template for book items"
+}
+
+###
+# Get all resource templates.
+# Expect: 200 OK
+GET {{baseUrl}}/api/resourcetemplates
+Authorization: Bearer {{token}}
+
+###
+# Get resource template by id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/resourcetemplates/1
+Authorization: Bearer {{token}}
+
+###
+# Add title property to template as required.
+# Expect: 204 No Content
+POST {{baseUrl}}/api/resourcetemplates/1/properties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "propertyId": 1,
+  "isRequired": true,
+  "displayOrder": 1,
+  "alternateLabel": null
+}
+
+###
+# Add creator property to template as optional.
+# Expect: 204 No Content
+POST {{baseUrl}}/api/resourcetemplates/1/properties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "propertyId": 2,
+  "isRequired": false,
+  "displayOrder": 2,
+  "alternateLabel": "Author"
+}
+
+###
+# Update the creator template property link.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/resourcetemplates/1/properties/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "isRequired": true,
+  "displayOrder": 2,
+  "alternateLabel": "Book Author"
+}
+
+###
+# Remove the creator property from the template.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/resourcetemplates/1/properties/2
+Authorization: Bearer {{token}}
+
+###
+# Update the resource template.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/resourcetemplates/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "label": "Book Template v2",
+  "description": "Updated description"
+}
+
+###
+# Create an item set.
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/itemsets
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Classic Literature",
+  "description": "A collection of classic books",
+  "isPublic": true
+}
+
+###
+# Get all item sets.
+# Expect: 200 OK
+GET {{baseUrl}}/api/itemsets
+Authorization: Bearer {{token}}
+
+###
+# Get item set by id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/itemsets/1
+Authorization: Bearer {{token}}
+
+###
+# Update the item set.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/itemsets/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Classic Literature (Updated)",
+  "description": "Updated description",
+  "isPublic": false
+}
+
+###
+# Create an item with title and creator values.
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "templateId": 1,
+  "values": [
+    {
+      "propertyId": 1,
+      "valueText": "The Great Gatsby",
+      "valueUri": null,
+      "valueResourceId": null,
+      "type": 0,
+      "language": { "code": "en" }
+    },
+    {
+      "propertyId": 2,
+      "valueText": "F. Scott Fitzgerald",
+      "valueUri": null,
+      "valueResourceId": null,
+      "type": 0,
+      "language": { "code": "en" }
+    }
+  ]
+}
+
+###
+# Get all items with pagination.
+# Expect: 200 OK
+GET {{baseUrl}}/api/items?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+###
+# Get item by id, including values and media.
+# Expect: 200 OK
+GET {{baseUrl}}/api/items/1002
+Authorization: Bearer {{token}}
+
+###
+# Update item and replace all values.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/items/1002
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "templateId": 1,
+  "values": [
+    {
+      "propertyId": 1,
+      "valueText": "The Great Gatsby (Updated)",
+      "valueUri": null,
+      "valueResourceId": null,
+      "type": 0,
+      "language": { "code": "en" }
+    },
+    {
+      "propertyId": 2,
+      "valueText": "F. Scott Fitzgerald",
+      "valueUri": null,
+      "valueResourceId": null,
+      "type": 0,
+      "language": { "code": "en" }
+    }
+  ]
+}
+
+###
+# Add the item to the item set.
+# Expect: 204 No Content
+POST {{baseUrl}}/api/itemsets/1/items/1002
+Authorization: Bearer {{token}}
+
+###
+# Get item set by id to verify the item appears.
+# Expect: 200 OK
+GET {{baseUrl}}/api/itemsets/1
+Authorization: Bearer {{token}}
+
+###
+# Remove the item from the item set.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/itemsets/1/items/1002
+Authorization: Bearer {{token}}
+
+###
+# Add an individual value to the existing item resource.
+# Expect: 201 Created with body { "id": 3 }
+POST {{baseUrl}}/api/values
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "resourceId": 1,
+  "propertyId": 1,
+  "valueText": "A standalone value",
+  "valueUri": null,
+  "valueResourceId": null,
+  "valueType": 0,
+  "language": { "code": "en" }
+}
+
+###
+# Get values by resource id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/values/by-resource/1
+Authorization: Bearer {{token}}
+
+###
+# Get the individual value by id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/values/3
+Authorization: Bearer {{token}}
+
+###
+# Update the individual value.
+# Expect: 204 No Content
+PUT {{baseUrl}}/api/values/3
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "valueText": "An updated standalone value",
+  "valueUri": null,
+  "valueResourceId": null,
+  "valueType": 0,
+  "language": { "code": "en" }
+}
+
+###
+# Delete the individual value before cleanup.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/values/3
+Authorization: Bearer {{token}}
+
+###
+# Upload media for the item.
+# NOTE: Place a sample image at DLMS.API/test-assets/cover.jpg before running this request
+# Expect: 201 Created with body { "id": 1 }
+POST {{baseUrl}}/api/media
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=--boundary
+
+----boundary
+Content-Disposition: form-data; name="itemId"
+
+1002
+----boundary
+Content-Disposition: form-data; name="altText"
+
+Cover image of The Great Gatsby
+----boundary
+Content-Disposition: form-data; name="file"; filename="cover.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/cover.jpg
+----boundary--
+
+###
+# Get media by item id.
+# Expect: 200 OK
+GET {{baseUrl}}/api/media/by-item/1002
+Authorization: Bearer {{token}}
+
+###
+# Delete uploaded media before deleting the item.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/media/1003
+Authorization: Bearer {{token}}
+
+###
+# Delete the item.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/items/1002
+Authorization: Bearer {{token}}
+
+###
+# Delete the item set.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/itemsets/1
+Authorization: Bearer {{token}}
+
+###
+# Delete the resource template.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/resourcetemplates/1
+Authorization: Bearer {{token}}
+
+###
+# Delete the title property.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/properties/1
+Authorization: Bearer {{token}}
+
+###
+# Delete the creator property.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/properties/2
+Authorization: Bearer {{token}}
+
+###
+# Delete the vocabulary.
+# Expect: 204 No Content
+DELETE {{baseUrl}}/api/vocabularies/1
+Authorization: Bearer {{token}}

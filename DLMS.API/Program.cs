@@ -2,6 +2,7 @@ using DLMS.Infrastructure;
 using DLMS.Application;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using DLMS.API.Converters;
 using DLMS.API.Middleware;
 
 Log.Logger = new LoggerConfiguration()
@@ -22,7 +23,11 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new LanguageCodeJsonConverter());
+        });
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
