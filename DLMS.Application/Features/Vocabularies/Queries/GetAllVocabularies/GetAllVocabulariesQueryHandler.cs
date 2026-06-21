@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using DLMS.Application.Common.Interfaces;
+using DLMS.Application.Common.Models;
 using DLMS.Application.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DLMS.Application.Features.Vocabularies.Queries.GetAllVocabularies;
 
 public class GetAllVocabulariesQueryHandler
-    : IRequestHandler<GetAllVocabulariesQuery, List<VocabularyDto>>
+    : IRequestHandler<GetAllVocabulariesQuery, PaginatedResult<VocabularyDto>>
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
@@ -19,12 +20,38 @@ public class GetAllVocabulariesQueryHandler
         _mapper = mapper;
     }
 
-    public async Task<List<VocabularyDto>> Handle(
+    public async Task<PaginatedResult<VocabularyDto>> Handle(
         GetAllVocabulariesQuery request,
         CancellationToken cancellationToken)
-        => await _context.Vocabularies
+    {
+        var query = _context.Vocabularies
             .AsNoTracking()
-            .OrderBy(v => v.Label)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim();
+            query = query.Where(v =>
+                v.Prefix.Contains(term) ||
+                v.NamespaceUri.Contains(term) ||
+                v.Label.Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(v => v.Prefix)
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
             .ProjectTo<VocabularyDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
+
+        return new PaginatedResult<VocabularyDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = request.Page,
+            PageSize = request.PageSize
+        };
+    }
 }

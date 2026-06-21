@@ -15,11 +15,12 @@ public class ItemsController : BaseApiController
     /// <summary>Get a paginated list of items.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] int? templateId = null,
-        CancellationToken ct = default)
-        => Ok(await Mediator.Send(new GetItemsQuery(page, pageSize, templateId), ct));
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] int? templateId = null,
+    [FromQuery] string? search = null,
+    CancellationToken ct = default)
+    => Ok(await Mediator.Send(new GetItemsQuery(page, pageSize, templateId, search), ct));
 
     /// <summary>Get a single item by Id, including its metadata values and media.</summary>
     [HttpGet("{id:int}")]

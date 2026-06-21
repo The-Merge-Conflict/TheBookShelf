@@ -14,9 +14,14 @@ namespace DLMS.API.Controllers;
 public class ItemSetsController : BaseApiController
 {
     /// <summary>Get all item sets.</summary>
+    /// Get a paginated, searchable list of item sets.
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await Mediator.Send(new GetAllItemSetsQuery(), ct));
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await Mediator.Send(new GetAllItemSetsQuery(page, pageSize, search), ct));
 
     /// <summary>Get an item set by Id.</summary>
     [HttpGet("{id:int}")]

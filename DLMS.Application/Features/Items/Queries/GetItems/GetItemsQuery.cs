@@ -7,5 +7,6 @@ namespace DLMS.Application.Features.Items.Queries.GetItems;
 public record GetItemsQuery(
     int Page = 1,
     int PageSize = 10,
-    int? TemplateId = null
+    int? TemplateId = null,
+    string? Search = null
 ) : IRequest<PaginatedResult<ItemDto>>;
