@@ -12,9 +12,14 @@ namespace DLMS.API.Controllers;
 public class VocabulariesController : BaseApiController
 {
     /// <summary>Get all vocabularies.</summary>
+    /// Get a paginated, searchable list of vocabularies.
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await Mediator.Send(new GetAllVocabulariesQuery(), ct));
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await Mediator.Send(new GetAllVocabulariesQuery(page, pageSize, search), ct));
 
     /// <summary>Get a vocabulary by Id.</summary>
     [HttpGet("{id:int}")]

@@ -13,9 +13,14 @@ namespace DLMS.API.Controllers;
 public class PropertiesController : BaseApiController
 {
     /// <summary>Get all properties across all vocabularies.</summary>
+    /// Get a paginated, searchable list of properties across all vocabularies.
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await Mediator.Send(new GetAllPropertiesQuery(), ct));
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await Mediator.Send(new GetAllPropertiesQuery(page, pageSize, search), ct));
 
     /// <summary>Get all properties belonging to a specific vocabulary.</summary>
     [HttpGet("by-vocabulary/{vocabularyId:int}")]

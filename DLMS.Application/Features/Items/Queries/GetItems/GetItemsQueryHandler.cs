@@ -34,6 +34,14 @@ public class GetItemsQueryHandler
         if (request.TemplateId.HasValue)
             query = query.Where(i => i.TemplateId == request.TemplateId);
 
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim();
+            query = query.Where(i =>
+                i.Values.Any(v => v.ValueText != null && v.ValueText.Contains(term)) ||
+                (i.Template != null && i.Template.Label.Contains(term)));
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query

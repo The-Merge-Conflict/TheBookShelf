@@ -15,9 +15,14 @@ namespace DLMS.API.Controllers;
 public class ResourceTemplatesController : BaseApiController
 {
     /// <summary>Get all resource templates.</summary>
+    /// Get a paginated, searchable list of resource templates.
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await Mediator.Send(new GetAllResourceTemplatesQuery(), ct));
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await Mediator.Send(new GetAllResourceTemplatesQuery(page, pageSize, search), ct));
 
     /// <summary>Get a resource template by Id (includes its properties).</summary>
     [HttpGet("{id:int}")]
