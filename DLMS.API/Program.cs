@@ -23,6 +23,24 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    // CORS — allow the Next.js admin app (different origin) to call this API
+    // from the browser. Without this every request from http://localhost:3000
+    // is blocked by the browser's same-origin policy.
+    const string AdminCorsPolicy = "AdminCors";
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(AdminCorsPolicy, policy =>
+        {
+            var allowedOrigins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins").Get<string[]>()
+                ?? new[] { "http://localhost:3000" };
+
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+    });
+
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -82,6 +100,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseCors(AdminCorsPolicy);
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
