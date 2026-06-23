@@ -9,6 +9,10 @@ public class CreateItemCommandValidator : AbstractValidator<CreateItemCommand>
 
     public CreateItemCommandValidator()
     {
+        RuleFor(x => x.TemplateId)
+            .NotNull().WithMessage("A template is required when creating an item.")
+            .GreaterThan(0).WithMessage("A valid template must be selected.");
+
         RuleFor(x => x.Values)
             .NotNull().WithMessage("Values list cannot be null.");
 

@@ -1,0 +1,1194 @@
+diff --git a/DLMS.API/Controllers/UsersController.cs b/DLMS.API/Controllers/UsersController.cs
+new file mode 100644
+index 0000000..55239e9
+--- /dev/null
++++ b/DLMS.API/Controllers/UsersController.cs
+@@ -0,0 +1,14 @@
++using DLMS.Application.Features.Users.Queries.GetAllUsers;
++using Microsoft.AspNetCore.Authorization;
++using Microsoft.AspNetCore.Mvc;
++
++namespace DLMS.API.Controllers;
++
++[Authorize(Roles = "Admin")]
++public class UsersController : BaseApiController
++{
++    /// <summary>Get all registered users with their roles.</summary>
++    [HttpGet]
++    public async Task<IActionResult> GetAll(CancellationToken ct)
++        => Ok(await Mediator.Send(new GetAllUsersQuery(), ct));
++}
+diff --git a/DLMS.API/Program.cs b/DLMS.API/Program.cs
+index a890e0c..3c10e75 100644
+--- a/DLMS.API/Program.cs
++++ b/DLMS.API/Program.cs
+@@ -100,6 +100,7 @@ try
+     }
+ 
+     app.UseHttpsRedirection();
++    app.UseStaticFiles();
+     app.UseCors(AdminCorsPolicy);
+     app.UseAuthentication();
+     app.UseAuthorization();
+diff --git a/DLMS.API/wwwroot/.gitkeep b/DLMS.API/wwwroot/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/DLMS.API/wwwroot/uploads/.gitkeep b/DLMS.API/wwwroot/uploads/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/DLMS.Application/Common/Interfaces/IIdentityService.cs b/DLMS.Application/Common/Interfaces/IIdentityService.cs
+index 12ae964..4251882 100644
+--- a/DLMS.Application/Common/Interfaces/IIdentityService.cs
++++ b/DLMS.Application/Common/Interfaces/IIdentityService.cs
+@@ -6,4 +6,6 @@ public interface IIdentityService
+ {
+     Task<AuthResponseDto> RegisterAsync(string userName, string email, string password, string role);
+     Task<AuthResponseDto> LoginAsync(string email, string password);
++
++    Task<IReadOnlyList<UserDto>> GetAllUsersAsync();
+ }
+\ No newline at end of file
+diff --git a/DLMS.Application/Common/Mappings/MappingProfile.cs b/DLMS.Application/Common/Mappings/MappingProfile.cs
+index 5251bdb..d6618f7 100644
+--- a/DLMS.Application/Common/Mappings/MappingProfile.cs
++++ b/DLMS.Application/Common/Mappings/MappingProfile.cs
+@@ -43,7 +43,14 @@ public class MappingProfile : Profile
+                 s.Template != null ? s.Template.Label : string.Empty))
+             .ForMember(d => d.Medias, o => o.MapFrom(s => s.MediaList));
+ 
++        // ItemSummary (lightweight member view used inside an ItemSet)
++        CreateMap<Item, ItemSummaryDto>()
++            .ForMember(d => d.TemplateLabel, o => o.MapFrom(s =>
++                s.Template != null ? s.Template.Label : string.Empty));
++
+         // ItemSet
+-        CreateMap<ItemSet, ItemSetDto>();
++        CreateMap<ItemSet, ItemSetDto>()
++            .ForMember(d => d.ItemCount, o => o.MapFrom(s => s.Items.Count))
++            .ForMember(d => d.Items, o => o.MapFrom(s => s.Items));
+     }
+ }
+\ No newline at end of file
+diff --git a/DLMS.Application/DTOs/Auth/UserDto.cs b/DLMS.Application/DTOs/Auth/UserDto.cs
+new file mode 100644
+index 0000000..2422927
+--- /dev/null
++++ b/DLMS.Application/DTOs/Auth/UserDto.cs
+@@ -0,0 +1,9 @@
++namespace DLMS.Application.DTOs.Auth;
++
++public class UserDto
++{
++    public string Id { get; set; } = string.Empty;
++    public string UserName { get; set; } = string.Empty;
++    public string Email { get; set; } = string.Empty;
++    public IReadOnlyList<string> Roles { get; set; } = [];
++}
+diff --git a/DLMS.Application/DTOs/ItemSetDto.cs b/DLMS.Application/DTOs/ItemSetDto.cs
+index a5224eb..101f896 100644
+--- a/DLMS.Application/DTOs/ItemSetDto.cs
++++ b/DLMS.Application/DTOs/ItemSetDto.cs
+@@ -8,4 +8,6 @@ public class ItemSetDto
+     public bool IsPublic { get; set; }
+     public string CreatedBy { get; set; } = string.Empty;
+     public DateTime CreatedAt { get; set; }
++    public int ItemCount { get; set; }
++    public IEnumerable<ItemSummaryDto> Items { get; set; } = [];
+ }
+\ No newline at end of file
+diff --git a/DLMS.Application/DTOs/ItemSummaryDto.cs b/DLMS.Application/DTOs/ItemSummaryDto.cs
+new file mode 100644
+index 0000000..35cd73a
+--- /dev/null
++++ b/DLMS.Application/DTOs/ItemSummaryDto.cs
+@@ -0,0 +1,9 @@
++namespace DLMS.Application.DTOs;
++
++public class ItemSummaryDto
++{
++    public int Id { get; set; }
++    public int? TemplateId { get; set; }
++    public string TemplateLabel { get; set; } = string.Empty;
++    public DateTime CreatedAt { get; set; }
++}
+diff --git a/DLMS.Application/DTOs/MediaDto.cs b/DLMS.Application/DTOs/MediaDto.cs
+index 2e28d9c..e307b19 100644
+--- a/DLMS.Application/DTOs/MediaDto.cs
++++ b/DLMS.Application/DTOs/MediaDto.cs
+@@ -9,4 +9,5 @@ public class MediaDto
+     public string MimeType { get; set; } = string.Empty;
+     public long FileSize { get; set; }
+     public string AltText { get; set; } = string.Empty;
++    public string? Thumbnail { get; set; }
+ }
+\ No newline at end of file
+diff --git a/DLMS.Application/Features/ItemSets/Queries/GetItemSetById/GetItemSetByIdQueryHandler.cs b/DLMS.Application/Features/ItemSets/Queries/GetItemSetById/GetItemSetByIdQueryHandler.cs
+index c76dc9b..f2f4d25 100644
+--- a/DLMS.Application/Features/ItemSets/Queries/GetItemSetById/GetItemSetByIdQueryHandler.cs
++++ b/DLMS.Application/Features/ItemSets/Queries/GetItemSetById/GetItemSetByIdQueryHandler.cs
+@@ -25,6 +25,8 @@ public class GetItemSetByIdQueryHandler : IRequestHandler<GetItemSetByIdQuery, I
+     {
+         var itemSet = await _context.ItemSets
+             .AsNoTracking()
++            .Include(s => s.Items)
++                .ThenInclude(i => i.Template)
+             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
+             ?? throw new NotFoundException(nameof(ItemSet), request.Id);
+ 
+diff --git a/DLMS.Application/Features/Items/Commmands/CreateItem/CreateItemCommandValidator.cs b/DLMS.Application/Features/Items/Commmands/CreateItem/CreateItemCommandValidator.cs
+index 23100b8..296a170 100644
+--- a/DLMS.Application/Features/Items/Commmands/CreateItem/CreateItemCommandValidator.cs
++++ b/DLMS.Application/Features/Items/Commmands/CreateItem/CreateItemCommandValidator.cs
+@@ -9,6 +9,10 @@ public class CreateItemCommandValidator : AbstractValidator<CreateItemCommand>
+ 
+     public CreateItemCommandValidator()
+     {
++        RuleFor(x => x.TemplateId)
++            .NotNull().WithMessage("A template is required when creating an item.")
++            .GreaterThan(0).WithMessage("A valid template must be selected.");
++
+         RuleFor(x => x.Values)
+             .NotNull().WithMessage("Values list cannot be null.");
+ 
+diff --git a/DLMS.Application/Features/Items/Commmands/UpdateItem/UpdateItemCommandValidator.cs b/DLMS.Application/Features/Items/Commmands/UpdateItem/UpdateItemCommandValidator.cs
+index 3d7eebe..aca34ca 100644
+--- a/DLMS.Application/Features/Items/Commmands/UpdateItem/UpdateItemCommandValidator.cs
++++ b/DLMS.Application/Features/Items/Commmands/UpdateItem/UpdateItemCommandValidator.cs
+@@ -8,6 +8,9 @@ public class UpdateItemCommandValidator : AbstractValidator<UpdateItemCommand>
+     public UpdateItemCommandValidator()
+     {
+         RuleFor(x => x.Id).GreaterThan(0);
++        RuleFor(x => x.TemplateId)
++            .NotNull().WithMessage("A template is required for an item.")
++            .GreaterThan(0).WithMessage("A valid template must be selected.");
+         RuleFor(x => x.Values).NotNull();
+         RuleForEach(x => x.Values).SetValidator(new ValueInputValidator());
+     }
+diff --git a/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandHandler.cs b/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandHandler.cs
+index 330fb12..34e5751 100644
+--- a/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandHandler.cs
++++ b/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandHandler.cs
+@@ -44,6 +44,9 @@ public class UploadMediaCommandHandler : IRequestHandler<UploadMediaCommand, int
+         var mimeType = _mediaProcessing.GetMimeType(request.File);
+         var fileSize = _mediaProcessing.GetFileSize(request.File);
+ 
++        // 3b. Generate a thumbnail for image uploads (base64 data URI, or empty for non-images).
++        var thumbnail = await _mediaProcessing.GenerateThumbnailAsync(request.File);
++
+         // 4. Build the Media entity
+         var media = new Domain.Entities.Media
+         {
+@@ -53,6 +56,7 @@ public class UploadMediaCommandHandler : IRequestHandler<UploadMediaCommand, int
+             AltText = request.AltText,
+             MimeType = MimeType.Create(mimeType),
+             FileSize = FileSize.Create(fileSize),
++            Thumbnail = string.IsNullOrEmpty(thumbnail) ? null : thumbnail,
+             OwnerId = _currentUser.UserId,
+             CreatedBy = _currentUser.UserName ?? "system",
+             CreatedAt = DateTime.UtcNow
+diff --git a/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandValidator.cs b/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandValidator.cs
+index b32e9fe..d734f67 100644
+--- a/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandValidator.cs
++++ b/DLMS.Application/Features/Media/Commands/UploadMedia/UploadMediaCommandValidator.cs
+@@ -4,7 +4,7 @@ namespace DLMS.Application.Features.Media.Commands.UploadMedia;
+ 
+ public class UploadMediaCommandValidator : AbstractValidator<UploadMediaCommand>
+ {
+-    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
++    private const long MaxFileSizeBytes = 100 * 1024 * 1024; // 100 MB (matches FileStorage:MaxFileSizeBytes)
+ 
+     private static readonly string[] AllowedMimeTypes =
+     [
+diff --git a/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQuery.cs b/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQuery.cs
+new file mode 100644
+index 0000000..3b299d2
+--- /dev/null
++++ b/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQuery.cs
+@@ -0,0 +1,6 @@
++using DLMS.Application.DTOs.Auth;
++using MediatR;
++
++namespace DLMS.Application.Features.Users.Queries.GetAllUsers;
++
++public record GetAllUsersQuery() : IRequest<IReadOnlyList<UserDto>>;
+diff --git a/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQueryHandler.cs b/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQueryHandler.cs
+new file mode 100644
+index 0000000..726c997
+--- /dev/null
++++ b/DLMS.Application/Features/Users/Queries/GetAllUsers/GetAllUsersQueryHandler.cs
+@@ -0,0 +1,19 @@
++using DLMS.Application.Common.Interfaces;
++using DLMS.Application.DTOs.Auth;
++using MediatR;
++
++namespace DLMS.Application.Features.Users.Queries.GetAllUsers;
++
++public class GetAllUsersQueryHandler
++    : IRequestHandler<GetAllUsersQuery, IReadOnlyList<UserDto>>
++{
++    private readonly IIdentityService _identityService;
++
++    public GetAllUsersQueryHandler(IIdentityService identityService)
++        => _identityService = identityService;
++
++    public Task<IReadOnlyList<UserDto>> Handle(
++        GetAllUsersQuery request,
++        CancellationToken cancellationToken)
++        => _identityService.GetAllUsersAsync();
++}
+diff --git a/DLMS.Domain/Entities/Media.cs b/DLMS.Domain/Entities/Media.cs
+index 1a03d1a..6a570e6 100644
+--- a/DLMS.Domain/Entities/Media.cs
++++ b/DLMS.Domain/Entities/Media.cs
+@@ -16,6 +16,9 @@ namespace DLMS.Domain.Entities
+         public string FileName { get; set; } = string.Empty;
+         public string? AltText { get; set; }
+ 
++        // Base64 data-URI thumbnail ("data:image/jpeg;base64,...") for image uploads.
++        public string? Thumbnail { get; set; }
++
+         public MimeType MimeType { get; set; } = null!;
+         public FileSize FileSize { get; set; } = null!;
+         public FileDimensions? Dimensions { get; set; }
+diff --git a/DLMS.Infrastructure/Identity/IdentityService.cs b/DLMS.Infrastructure/Identity/IdentityService.cs
+index eab4447..836bd0a 100644
+--- a/DLMS.Infrastructure/Identity/IdentityService.cs
++++ b/DLMS.Infrastructure/Identity/IdentityService.cs
+@@ -1,6 +1,7 @@
+ ﻿using DLMS.Application.Common.Interfaces;
+ using DLMS.Application.DTOs.Auth;
+ using Microsoft.AspNetCore.Identity;
++using Microsoft.EntityFrameworkCore;
+ 
+ namespace DLMS.Infrastructure.Identity;
+ 
+@@ -88,4 +89,24 @@ public class IdentityService : IIdentityService
+             Errors = []
+         };
+     }
++
++    public async Task<IReadOnlyList<UserDto>> GetAllUsersAsync()
++    {
++        var users = await _userManager.Users.AsNoTracking().ToListAsync();
++
++        var result = new List<UserDto>(users.Count);
++        foreach (var user in users)
++        {
++            var roles = await _userManager.GetRolesAsync(user);
++            result.Add(new UserDto
++            {
++                Id = user.Id,
++                UserName = user.UserName ?? string.Empty,
++                Email = user.Email ?? string.Empty,
++                Roles = [.. roles]
++            });
++        }
++
++        return result;
++    }
+ }
+diff --git a/DLMS.Infrastructure/Identity/JwtTokenGenerator.cs b/DLMS.Infrastructure/Identity/JwtTokenGenerator.cs
+index 4d4aa2f..de5f917 100644
+--- a/DLMS.Infrastructure/Identity/JwtTokenGenerator.cs
++++ b/DLMS.Infrastructure/Identity/JwtTokenGenerator.cs
+@@ -30,7 +30,9 @@ namespace DLMS.Infrastructure.Identity
+         {
+             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+             new Claim(JwtRegisteredClaimNames.Email, user.Email!),
+-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
++            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
++            new Claim(ClaimTypes.NameIdentifier, user.Id),
++            new Claim(ClaimTypes.Name, user.UserName!)
+         };
+ 
+             // 3. Add Roles to the token
+diff --git a/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.Designer.cs b/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.Designer.cs
+new file mode 100644
+index 0000000..cfba9ba
+--- /dev/null
++++ b/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.Designer.cs
+@@ -0,0 +1,824 @@
++﻿// <auto-generated />
++using System;
++using DLMS.Infrastructure.Persistence;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Metadata;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++
++#nullable disable
++
++namespace DLMS.Infrastructure.Migrations
++{
++    [DbContext(typeof(ApplicationDbContext))]
++    [Migration("20260623120000_AddMediaThumbnail")]
++    partial class AddMediaThumbnail
++    {
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "9.0.0")
++                .HasAnnotation("Relational:MaxIdentifierLength", 128);
++
++            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Property", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("Label")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<string>("LocalName")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("TermUri")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("nvarchar(255)");
++
++                    b.Property<int>("VocabularyId")
++                        .HasColumnType("int");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("VocabularyId");
++
++                    b.ToTable("Properties");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Resource", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("CreatedBy")
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("ModifiedBy")
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<string>("OwnerId")
++                        .HasMaxLength(450)
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<int>("ResourceType")
++                        .HasColumnType("int");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("Resources");
++
++                    b.HasDiscriminator<int>("ResourceType");
++
++                    b.UseTphMappingStrategy();
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.ResourceTemplate", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("Description")
++                        .HasMaxLength(500)
++                        .HasColumnType("nvarchar(500)");
++
++                    b.Property<string>("Label")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("ResourceTemplates");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.TemplateProperty", b =>
++                {
++                    b.Property<int>("TemplateId")
++                        .HasColumnType("int");
++
++                    b.Property<int>("PropertyId")
++                        .HasColumnType("int");
++
++                    b.Property<string>("AlternateLabel")
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<int>("DisplayOrder")
++                        .HasColumnType("int");
++
++                    b.Property<bool>("IsRequired")
++                        .HasColumnType("bit");
++
++                    b.HasKey("TemplateId", "PropertyId");
++
++                    b.HasIndex("PropertyId");
++
++                    b.ToTable("TemplateProperties");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.User", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("IdentityUserId")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<bool>("IsActive")
++                        .HasColumnType("bit");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("IdentityUserId")
++                        .IsUnique();
++
++                    b.ToTable("Users");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Value", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("Language")
++                        .HasMaxLength(2)
++                        .HasColumnType("nvarchar(2)")
++                        .HasColumnName("Language");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<int>("PropertyId")
++                        .HasColumnType("int");
++
++                    b.Property<int>("ResourceId")
++                        .HasColumnType("int");
++
++                    b.Property<int?>("ValueResourceId")
++                        .HasColumnType("int");
++
++                    b.Property<string>("ValueText")
++                        .HasMaxLength(4000)
++                        .HasColumnType("nvarchar(4000)");
++
++                    b.Property<int>("ValueType")
++                        .HasColumnType("int");
++
++                    b.Property<string>("ValueUri")
++                        .HasMaxLength(500)
++                        .HasColumnType("nvarchar(500)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("PropertyId");
++
++                    b.HasIndex("ResourceId");
++
++                    b.HasIndex("ValueResourceId");
++
++                    b.ToTable("Values");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Vocabulary", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("Label")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)");
++
++                    b.Property<DateTime?>("ModifiedAt")
++                        .HasColumnType("datetime2");
++
++                    b.Property<string>("NamespaceUri")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("nvarchar(255)");
++
++                    b.Property<string>("Prefix")
++                        .IsRequired()
++                        .HasMaxLength(50)
++                        .HasColumnType("nvarchar(50)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Prefix")
++                        .IsUnique();
++
++                    b.ToTable("Vocabularies");
++                });
++
++            modelBuilder.Entity("DLMS.Infrastructure.Identity.ApplicationUser", b =>
++                {
++                    b.Property<string>("Id")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<int>("AccessFailedCount")
++                        .HasColumnType("int");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("Email")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<bool>("EmailConfirmed")
++                        .HasColumnType("bit");
++
++                    b.Property<bool>("LockoutEnabled")
++                        .HasColumnType("bit");
++
++                    b.Property<DateTimeOffset?>("LockoutEnd")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<string>("NormalizedEmail")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("NormalizedUserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("PasswordHash")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("PhoneNumber")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<bool>("PhoneNumberConfirmed")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("SecurityStamp")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<bool>("TwoFactorEnabled")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("UserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedEmail")
++                        .HasDatabaseName("EmailIndex");
++
++                    b.HasIndex("NormalizedUserName")
++                        .IsUnique()
++                        .HasDatabaseName("UserNameIndex")
++                        .HasFilter("[NormalizedUserName] IS NOT NULL");
++
++                    b.ToTable("AspNetUsers", (string)null);
++                });
++
++            modelBuilder.Entity("ItemItemSet", b =>
++                {
++                    b.Property<int>("ItemSetsId")
++                        .HasColumnType("int");
++
++                    b.Property<int>("ItemsId")
++                        .HasColumnType("int");
++
++                    b.HasKey("ItemSetsId", "ItemsId");
++
++                    b.HasIndex("ItemsId");
++
++                    b.ToTable("ItemItemSet");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
++                {
++                    b.Property<string>("Id")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("NormalizedName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedName")
++                        .IsUnique()
++                        .HasDatabaseName("RoleNameIndex")
++                        .HasFilter("[NormalizedName] IS NOT NULL");
++
++                    b.ToTable("AspNetRoles", (string)null);
++
++                    b.HasData(
++                        new
++                        {
++                            Id = "1",
++                            Name = "Admin",
++                            NormalizedName = "ADMIN"
++                        },
++                        new
++                        {
++                            Id = "2",
++                            Name = "Editor",
++                            NormalizedName = "EDITOR"
++                        },
++                        new
++                        {
++                            Id = "3",
++                            Name = "Viewer",
++                            NormalizedName = "VIEWER"
++                        });
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("RoleId")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(450)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("AspNetRoleClaims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("UserId")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(450)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("AspNetUserClaims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
++                {
++                    b.Property<string>("LoginProvider")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("ProviderKey")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("ProviderDisplayName")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("UserId")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(450)");
++
++                    b.HasKey("LoginProvider", "ProviderKey");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("AspNetUserLogins", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
++                {
++                    b.Property<string>("UserId")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("RoleId")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.HasKey("UserId", "RoleId");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("AspNetUserRoles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
++                {
++                    b.Property<string>("UserId")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("LoginProvider")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("Name")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("Value")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasKey("UserId", "LoginProvider", "Name");
++
++                    b.ToTable("AspNetUserTokens", (string)null);
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Item", b =>
++                {
++                    b.HasBaseType("DLMS.Domain.Entities.Resource");
++
++                    b.Property<int?>("TemplateId")
++                        .HasColumnType("int");
++
++                    b.HasIndex("TemplateId");
++
++                    b.HasDiscriminator().HasValue(0);
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.ItemSet", b =>
++                {
++                    b.HasBaseType("DLMS.Domain.Entities.Resource");
++
++                    b.Property<string>("Description")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<bool>("IsPublic")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("Title")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasDiscriminator().HasValue(1);
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Media", b =>
++                {
++                    b.HasBaseType("DLMS.Domain.Entities.Resource");
++
++                    b.Property<string>("AltText")
++                        .HasMaxLength(500)
++                        .HasColumnType("nvarchar(500)");
++
++                    b.Property<string>("FileName")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("nvarchar(255)");
++
++                    b.Property<long>("FileSize")
++                        .HasColumnType("bigint")
++                        .HasColumnName("FileSize");
++
++                    b.Property<int>("ItemId")
++                        .HasColumnType("int");
++
++                    b.Property<string>("MimeType")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("nvarchar(100)")
++                        .HasColumnName("MimeType");
++
++                    b.Property<string>("StoragePath")
++                        .IsRequired()
++                        .HasMaxLength(500)
++                        .HasColumnType("nvarchar(500)");
++
++                    b.Property<string>("Thumbnail")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasIndex("ItemId");
++
++                    b.HasDiscriminator().HasValue(2);
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Property", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.Vocabulary", "Vocabulary")
++                        .WithMany("Properties")
++                        .HasForeignKey("VocabularyId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.Navigation("Vocabulary");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.TemplateProperty", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.Property", "Property")
++                        .WithMany("TemplateProperties")
++                        .HasForeignKey("PropertyId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.HasOne("DLMS.Domain.Entities.ResourceTemplate", "Template")
++                        .WithMany("TemplateProperties")
++                        .HasForeignKey("TemplateId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Property");
++
++                    b.Navigation("Template");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.User", b =>
++                {
++                    b.OwnsOne("DLMS.Domain.ValueObjects.Address", "Address", b1 =>
++                        {
++                            b1.Property<int>("UserId")
++                                .HasColumnType("int");
++
++                            b1.Property<string>("City")
++                                .IsRequired()
++                                .HasMaxLength(100)
++                                .HasColumnType("nvarchar(100)")
++                                .HasColumnName("City");
++
++                            b1.Property<string>("Country")
++                                .IsRequired()
++                                .HasMaxLength(100)
++                                .HasColumnType("nvarchar(100)")
++                                .HasColumnName("Country");
++
++                            b1.Property<string>("State")
++                                .IsRequired()
++                                .HasMaxLength(100)
++                                .HasColumnType("nvarchar(100)")
++                                .HasColumnName("State");
++
++                            b1.Property<string>("Street")
++                                .IsRequired()
++                                .HasMaxLength(200)
++                                .HasColumnType("nvarchar(200)")
++                                .HasColumnName("Street");
++
++                            b1.Property<string>("ZipCode")
++                                .IsRequired()
++                                .HasMaxLength(20)
++                                .HasColumnType("nvarchar(20)")
++                                .HasColumnName("ZipCode");
++
++                            b1.HasKey("UserId");
++
++                            b1.ToTable("Users");
++
++                            b1.WithOwner()
++                                .HasForeignKey("UserId");
++                        });
++
++                    b.Navigation("Address");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Value", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.Property", "Property")
++                        .WithMany("Values")
++                        .HasForeignKey("PropertyId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.HasOne("DLMS.Domain.Entities.Resource", "Resource")
++                        .WithMany("Values")
++                        .HasForeignKey("ResourceId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("DLMS.Domain.Entities.Resource", "ValueResource")
++                        .WithMany()
++                        .HasForeignKey("ValueResourceId")
++                        .OnDelete(DeleteBehavior.Restrict);
++
++                    b.Navigation("Property");
++
++                    b.Navigation("Resource");
++
++                    b.Navigation("ValueResource");
++                });
++
++            modelBuilder.Entity("ItemItemSet", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.ItemSet", null)
++                        .WithMany()
++                        .HasForeignKey("ItemSetsId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("DLMS.Domain.Entities.Item", null)
++                        .WithMany()
++                        .HasForeignKey("ItemsId")
++                        .OnDelete(DeleteBehavior.ClientCascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
++                {
++                    b.HasOne("DLMS.Infrastructure.Identity.ApplicationUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
++                {
++                    b.HasOne("DLMS.Infrastructure.Identity.ApplicationUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("DLMS.Infrastructure.Identity.ApplicationUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
++                {
++                    b.HasOne("DLMS.Infrastructure.Identity.ApplicationUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Item", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.ResourceTemplate", "Template")
++                        .WithMany("Items")
++                        .HasForeignKey("TemplateId")
++                        .OnDelete(DeleteBehavior.SetNull);
++
++                    b.Navigation("Template");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Media", b =>
++                {
++                    b.HasOne("DLMS.Domain.Entities.Item", "Item")
++                        .WithMany("MediaList")
++                        .HasForeignKey("ItemId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.OwnsOne("DLMS.Domain.ValueObjects.FileDimensions", "Dimensions", b1 =>
++                        {
++                            b1.Property<int>("MediaId")
++                                .HasColumnType("int");
++
++                            b1.Property<int>("Height")
++                                .HasColumnType("int")
++                                .HasColumnName("Height");
++
++                            b1.Property<int>("Width")
++                                .HasColumnType("int")
++                                .HasColumnName("Width");
++
++                            b1.HasKey("MediaId");
++
++                            b1.ToTable("Resources");
++
++                            b1.WithOwner()
++                                .HasForeignKey("MediaId");
++                        });
++
++                    b.Navigation("Dimensions");
++
++                    b.Navigation("Item");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Property", b =>
++                {
++                    b.Navigation("TemplateProperties");
++
++                    b.Navigation("Values");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Resource", b =>
++                {
++                    b.Navigation("Values");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.ResourceTemplate", b =>
++                {
++                    b.Navigation("Items");
++
++                    b.Navigation("TemplateProperties");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Vocabulary", b =>
++                {
++                    b.Navigation("Properties");
++                });
++
++            modelBuilder.Entity("DLMS.Domain.Entities.Item", b =>
++                {
++                    b.Navigation("MediaList");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.cs b/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.cs
+new file mode 100644
+index 0000000..6f641a4
+--- /dev/null
++++ b/DLMS.Infrastructure/Migrations/20260623120000_AddMediaThumbnail.cs
+@@ -0,0 +1,28 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace DLMS.Infrastructure.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddMediaThumbnail : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AddColumn<string>(
++                name: "Thumbnail",
++                table: "Resources",
++                type: "nvarchar(max)",
++                nullable: true);
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropColumn(
++                name: "Thumbnail",
++                table: "Resources");
++        }
++    }
++}
+diff --git a/DLMS.Infrastructure/Migrations/ApplicationDbContextModelSnapshot.cs b/DLMS.Infrastructure/Migrations/ApplicationDbContextModelSnapshot.cs
+index be4d363..d103c7f 100644
+--- a/DLMS.Infrastructure/Migrations/ApplicationDbContextModelSnapshot.cs
++++ b/DLMS.Infrastructure/Migrations/ApplicationDbContextModelSnapshot.cs
+@@ -566,6 +566,9 @@ namespace DLMS.Infrastructure.Migrations
+                         .HasMaxLength(500)
+                         .HasColumnType("nvarchar(500)");
+ 
++                    b.Property<string>("Thumbnail")
++                        .HasColumnType("nvarchar(max)");
++
+                     b.HasIndex("ItemId");
+ 
+                     b.HasDiscriminator().HasValue(2);
+diff --git a/DLMS.Infrastructure/Persistence/Configurations/MediaConfiguration.cs b/DLMS.Infrastructure/Persistence/Configurations/MediaConfiguration.cs
+index 3bf8997..798175b 100644
+--- a/DLMS.Infrastructure/Persistence/Configurations/MediaConfiguration.cs
++++ b/DLMS.Infrastructure/Persistence/Configurations/MediaConfiguration.cs
+@@ -17,6 +17,7 @@ namespace DLMS.Infrastructure.Persistence.Configurations
+             builder.Property(m => m.StoragePath).HasMaxLength(500);
+             builder.Property(m => m.FileName).HasMaxLength(255);
+             builder.Property(m => m.AltText).HasMaxLength(500);
++            builder.Property(m => m.Thumbnail);
+ 
+             // Value Object: MimeType
+             builder.Property(m => m.MimeType)

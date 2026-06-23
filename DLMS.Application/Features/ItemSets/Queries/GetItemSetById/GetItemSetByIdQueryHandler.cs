@@ -25,6 +25,8 @@ public class GetItemSetByIdQueryHandler : IRequestHandler<GetItemSetByIdQuery, I
     {
         var itemSet = await _context.ItemSets
             .AsNoTracking()
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Template)
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(ItemSet), request.Id);
 

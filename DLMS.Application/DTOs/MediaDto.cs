@@ -9,4 +9,5 @@ public class MediaDto
     public string MimeType { get; set; } = string.Empty;
     public long FileSize { get; set; }
     public string AltText { get; set; } = string.Empty;
+    public string? Thumbnail { get; set; }
 }

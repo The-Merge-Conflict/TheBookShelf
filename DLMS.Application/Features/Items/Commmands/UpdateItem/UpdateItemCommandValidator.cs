@@ -8,6 +8,9 @@ public class UpdateItemCommandValidator : AbstractValidator<UpdateItemCommand>
     public UpdateItemCommandValidator()
     {
         RuleFor(x => x.Id).GreaterThan(0);
+        RuleFor(x => x.TemplateId)
+            .NotNull().WithMessage("A template is required for an item.")
+            .GreaterThan(0).WithMessage("A valid template must be selected.");
         RuleFor(x => x.Values).NotNull();
         RuleForEach(x => x.Values).SetValidator(new ValueInputValidator());
     }

@@ -1,6 +1,7 @@
 ﻿using DLMS.Application.Common.Interfaces;
 using DLMS.Application.DTOs.Auth;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace DLMS.Infrastructure.Identity;
 
@@ -87,5 +88,25 @@ public class IdentityService : IIdentityService
             Roles = [.. roles],
             Errors = []
         };
+    }
+
+    public async Task<IReadOnlyList<UserDto>> GetAllUsersAsync()
+    {
+        var users = await _userManager.Users.AsNoTracking().ToListAsync();
+
+        var result = new List<UserDto>(users.Count);
+        foreach (var user in users)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+            result.Add(new UserDto
+            {
+                Id = user.Id,
+                UserName = user.UserName ?? string.Empty,
+                Email = user.Email ?? string.Empty,
+                Roles = [.. roles]
+            });
+        }
+
+        return result;
     }
 }

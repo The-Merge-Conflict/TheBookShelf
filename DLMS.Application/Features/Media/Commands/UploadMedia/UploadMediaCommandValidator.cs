@@ -4,7 +4,7 @@ namespace DLMS.Application.Features.Media.Commands.UploadMedia;
 
 public class UploadMediaCommandValidator : AbstractValidator<UploadMediaCommand>
 {
-    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+    private const long MaxFileSizeBytes = 100 * 1024 * 1024; // 100 MB (matches FileStorage:MaxFileSizeBytes)
 
     private static readonly string[] AllowedMimeTypes =
     [
