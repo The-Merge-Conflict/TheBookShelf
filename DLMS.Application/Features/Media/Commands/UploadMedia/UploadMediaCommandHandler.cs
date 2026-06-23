@@ -44,6 +44,9 @@ public class UploadMediaCommandHandler : IRequestHandler<UploadMediaCommand, int
         var mimeType = _mediaProcessing.GetMimeType(request.File);
         var fileSize = _mediaProcessing.GetFileSize(request.File);
 
+        // 3b. Generate a thumbnail for image uploads (base64 data URI, or empty for non-images).
+        var thumbnail = await _mediaProcessing.GenerateThumbnailAsync(request.File);
+
         // 4. Build the Media entity
         var media = new Domain.Entities.Media
         {
@@ -53,6 +56,7 @@ public class UploadMediaCommandHandler : IRequestHandler<UploadMediaCommand, int
             AltText = request.AltText,
             MimeType = MimeType.Create(mimeType),
             FileSize = FileSize.Create(fileSize),
+            Thumbnail = string.IsNullOrEmpty(thumbnail) ? null : thumbnail,
             OwnerId = _currentUser.UserId,
             CreatedBy = _currentUser.UserName ?? "system",
             CreatedAt = DateTime.UtcNow

@@ -100,6 +100,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseStaticFiles();
     app.UseCors(AdminCorsPolicy);
     app.UseAuthentication();
     app.UseAuthorization();

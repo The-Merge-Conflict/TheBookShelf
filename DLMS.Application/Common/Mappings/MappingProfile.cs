@@ -43,7 +43,14 @@ public class MappingProfile : Profile
                 s.Template != null ? s.Template.Label : string.Empty))
             .ForMember(d => d.Medias, o => o.MapFrom(s => s.MediaList));
 
+        // ItemSummary (lightweight member view used inside an ItemSet)
+        CreateMap<Item, ItemSummaryDto>()
+            .ForMember(d => d.TemplateLabel, o => o.MapFrom(s =>
+                s.Template != null ? s.Template.Label : string.Empty));
+
         // ItemSet
-        CreateMap<ItemSet, ItemSetDto>();
+        CreateMap<ItemSet, ItemSetDto>()
+            .ForMember(d => d.ItemCount, o => o.MapFrom(s => s.Items.Count))
+            .ForMember(d => d.Items, o => o.MapFrom(s => s.Items));
     }
 }

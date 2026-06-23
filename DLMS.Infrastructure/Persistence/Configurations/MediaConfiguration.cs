@@ -17,6 +17,7 @@ namespace DLMS.Infrastructure.Persistence.Configurations
             builder.Property(m => m.StoragePath).HasMaxLength(500);
             builder.Property(m => m.FileName).HasMaxLength(255);
             builder.Property(m => m.AltText).HasMaxLength(500);
+            builder.Property(m => m.Thumbnail);
 
             // Value Object: MimeType
             builder.Property(m => m.MimeType)

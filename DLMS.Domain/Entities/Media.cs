@@ -16,6 +16,9 @@ namespace DLMS.Domain.Entities
         public string FileName { get; set; } = string.Empty;
         public string? AltText { get; set; }
 
+        // Base64 data-URI thumbnail ("data:image/jpeg;base64,...") for image uploads.
+        public string? Thumbnail { get; set; }
+
         public MimeType MimeType { get; set; } = null!;
         public FileSize FileSize { get; set; } = null!;
         public FileDimensions? Dimensions { get; set; }

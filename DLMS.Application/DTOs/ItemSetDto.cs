@@ -8,4 +8,6 @@ public class ItemSetDto
     public bool IsPublic { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public int ItemCount { get; set; }
+    public IEnumerable<ItemSummaryDto> Items { get; set; } = [];
 }
